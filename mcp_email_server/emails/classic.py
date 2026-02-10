@@ -108,6 +108,9 @@ class EmailClient:
         self.smtp_start_tls = self.email_server.start_ssl
         self.smtp_verify_ssl = self.email_server.verify_ssl
 
+        # Cache for last search total to avoid repeated searches
+        self._last_search_total = None
+
     def _imap_connect(self) -> aioimaplib.IMAP4_SSL | aioimaplib.IMAP4:
         """Create a new IMAP connection with the configured SSL context."""
         if self.email_server.use_ssl:
@@ -676,6 +679,9 @@ class EmailClient:
 
             total = len(email_ids)
             logger.info(f"Found {total} email IDs")
+
+            # Cache the search result for this request (to avoid duplicate search in get_email_count)
+            self._last_search_total = total
 
             # OPTIMIZED: Use UID ordering directly instead of fetching all dates
             # UIDs are strictly ascending as messages are added to the mailbox
@@ -1282,6 +1288,16 @@ class ClassicEmailHandler(EmailHandler):
         flagged: bool | None = None,
         answered: bool | None = None,
     ) -> EmailMetadataPageResponse:
+        # Require at least one filter to prevent expensive "ALL" searches on large mailboxes
+        has_filter = any([before, since, subject, from_address, to_address, seen is not None, flagged is not None, answered is not None])
+        if not has_filter:
+            msg = (
+                "At least one filter is required (date, subject, from, to, seen, flagged, or answered) "
+                "to prevent expensive searches on large mailboxes. "
+                "Example: provide 'since' with a recent date like the last 30 days."
+            )
+            raise ValueError(msg)
+
         emails = []
         async for email_data in self.incoming_client.get_emails_metadata_stream(
             page,
@@ -1298,17 +1314,10 @@ class ClassicEmailHandler(EmailHandler):
             answered,
         ):
             emails.append(EmailMetadata.from_email(email_data))
-        total = await self.incoming_client.get_email_count(
-            before,
-            since,
-            subject,
-            from_address=from_address,
-            to_address=to_address,
-            mailbox=mailbox,
-            seen=seen,
-            flagged=flagged,
-            answered=answered,
-        )
+
+        # Use the cached total from the stream search instead of doing a separate search
+        total = self.incoming_client._last_search_total or 0
+
         return EmailMetadataPageResponse(
             page=page,
             page_size=page_size,
