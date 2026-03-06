@@ -270,6 +270,27 @@ async def move_emails(
 
 
 @mcp.tool(
+    description="Archive one or more emails (moves from source mailbox to archive mailbox). Use list_emails_metadata first to get the email_id."
+)
+async def archive_emails(
+    account_name: Annotated[str, Field(description="The name of the email account.")],
+    email_ids: Annotated[
+        list[str],
+        Field(description="List of email_id to archive (obtained from list_emails_metadata)."),
+    ],
+    source_mailbox: Annotated[str, Field(default="INBOX", description="Source mailbox.")] = "INBOX",
+    archive_mailbox: Annotated[str, Field(default="Archive", description="Archive mailbox name.")] = "Archive",
+) -> str:
+    handler = dispatch_handler(account_name)
+    archived_ids, failed_ids = await handler.archive_emails(email_ids, source_mailbox, archive_mailbox)
+
+    result = f"Successfully archived {len(archived_ids)} email(s) to '{archive_mailbox}'"
+    if failed_ids:
+        result += f", failed to archive {len(failed_ids)} email(s): {', '.join(failed_ids)}"
+    return result
+
+
+@mcp.tool(
     description="Download an email attachment and save it to the specified path. This feature must be explicitly enabled in settings (enable_attachment_download=true) due to security considerations.",
 )
 async def download_attachment(

@@ -5,11 +5,14 @@ import pytest
 
 from mcp_email_server.app import (
     add_email_account,
+    archive_emails,
     delete_emails,
     download_attachment,
     get_emails_content,
     list_available_accounts,
     list_emails_metadata,
+    mark_emails_as_read,
+    move_emails,
     send_email,
 )
 from mcp_email_server.config import EmailServer, EmailSettings, ProviderSettings
@@ -544,3 +547,38 @@ class TestMcpTools:
             )
 
             assert result.emails[0].message_id == "<test@example.com>"
+
+    @pytest.mark.asyncio
+    async def test_mark_emails_as_read(self):
+        mock_handler = AsyncMock()
+        mock_handler.mark_emails_as_read.return_value = (["1", "2"], ["3"])
+
+        with patch("mcp_email_server.app.dispatch_handler", return_value=mock_handler):
+            result = await mark_emails_as_read("acct", ["1", "2", "3"], mailbox="INBOX", read=True)
+
+            assert "Successfully marked 2 email(s) as read" in result
+            assert "failed to mark 1 email(s): 3" in result
+            mock_handler.mark_emails_as_read.assert_called_once_with(["1", "2", "3"], "INBOX", True)
+
+    @pytest.mark.asyncio
+    async def test_move_emails(self):
+        mock_handler = AsyncMock()
+        mock_handler.move_emails.return_value = (["1"], ["2"])
+
+        with patch("mcp_email_server.app.dispatch_handler", return_value=mock_handler):
+            result = await move_emails("acct", ["1", "2"], destination_mailbox="Archive", source_mailbox="INBOX")
+
+            assert "Successfully moved 1 email(s) to 'Archive'" in result
+            assert "failed to move 1 email(s): 2" in result
+            mock_handler.move_emails.assert_called_once_with(["1", "2"], "Archive", "INBOX")
+
+    @pytest.mark.asyncio
+    async def test_archive_emails(self):
+        mock_handler = AsyncMock()
+        mock_handler.archive_emails.return_value = (["1", "2"], [])
+
+        with patch("mcp_email_server.app.dispatch_handler", return_value=mock_handler):
+            result = await archive_emails("acct", ["1", "2"], source_mailbox="INBOX", archive_mailbox="Archive")
+
+            assert result == "Successfully archived 2 email(s) to 'Archive'"
+            mock_handler.archive_emails.assert_called_once_with(["1", "2"], "INBOX", "Archive")

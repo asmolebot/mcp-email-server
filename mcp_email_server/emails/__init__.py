@@ -144,6 +144,19 @@ class EmailHandler(abc.ABC):
         """
 
     @abc.abstractmethod
+    async def archive_emails(
+        self, email_ids: list[str], source_mailbox: str = "INBOX", archive_mailbox: str = "Archive"
+    ) -> tuple[list[str], list[str]]:
+        """
+        Archive emails by moving them from source mailbox to archive mailbox.
+
+        Args:
+            email_ids: List of email IDs to archive.
+            source_mailbox: Source mailbox (default: "INBOX").
+            archive_mailbox: Archive mailbox name (default: "Archive").
+        """
+
+    @abc.abstractmethod
     async def download_attachment(
         self,
         email_id: str,

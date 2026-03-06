@@ -1246,6 +1246,12 @@ class EmailClient:
 
         return moved_ids, failed_ids
 
+    async def archive_emails(
+        self, email_ids: list[str], source_mailbox: str = "INBOX", archive_mailbox: str = "Archive"
+    ) -> tuple[list[str], list[str]]:
+        """Archive emails by moving them to the archive mailbox."""
+        return await self.move_emails(email_ids, destination_mailbox=archive_mailbox, source_mailbox=source_mailbox)
+
 
 class ClassicEmailHandler(EmailHandler):
     def __init__(self, email_settings: EmailSettings):
@@ -1413,6 +1419,12 @@ class ClassicEmailHandler(EmailHandler):
     ) -> tuple[list[str], list[str]]:
         """Move emails to another mailbox. Returns (moved_ids, failed_ids)."""
         return await self.incoming_client.move_emails(email_ids, destination_mailbox, source_mailbox)
+
+    async def archive_emails(
+        self, email_ids: list[str], source_mailbox: str = "INBOX", archive_mailbox: str = "Archive"
+    ) -> tuple[list[str], list[str]]:
+        """Archive emails by moving them to archive mailbox."""
+        return await self.incoming_client.archive_emails(email_ids, source_mailbox, archive_mailbox)
 
     async def download_attachment(
         self,
